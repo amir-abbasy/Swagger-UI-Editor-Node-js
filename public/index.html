@@ -161,7 +161,7 @@
 
             const onPick = (e) => {
                 const { name, value } = e.target
-                if(!value)return
+                if (!value) return
 
                 setParams({ ...params, [name]: value })
 
@@ -456,7 +456,14 @@
                     <div class='flex-1 overflow-y-scroll bg-gray-50'>
                         <div class='flex justify-between items-center'>
                             <h1>Swagger JSON</h1>
-                            <button type="submit" className='p-2 px-4 bg-black text-white float-right hover:bg-gray-700 m-2'>Copy Swagger JSON</button>
+                            <button type="submit"
+                                onClick={() => {
+                                    // Copy to clipboard
+                                    navigator.clipboard.writeText(JSON.stringify(formData, null, 2))
+                                        .then(() => window.alert("JSON copied to clipboard!"))
+                                        .catch(err => window.alert("Error copying JSON:", err));
+                                }}
+                                className='p-2 px-4 bg-black text-white float-right hover:bg-gray-700 m-2'>Copy Swagger JSON</button>
                         </div>
                         <div class="w-full " ref={wrapperRef} id="wrapper"></div>
                         <pre id="json-output" className="text-[#515c50]  px-7 border-t mt-4 border-gray-200 ">{JSON.stringify(formData, null, 4)}</pre>

@@ -72,7 +72,7 @@ Additionally, I have created a **web-based schema generator** accessible at `/sw
 ## Future Enhancements
 - **Support for More API Methods** (PUT, DELETE, PATCH)
 - **Customizable Theme for the UI Editor**
-- **Export to YAML Format**
+- **Export to JSON Format**
 
 ## License
 This project is licensed under the MIT License.
