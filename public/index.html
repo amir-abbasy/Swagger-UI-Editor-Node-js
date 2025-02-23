@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+
+    <link href="https://rawgit.com/summerstyle/jsonTreeViewer/master/libs/jsonTree/jsonTree.css" rel="stylesheet" />
+    <script src="https://rawgit.com/summerstyle/jsonTreeViewer/master/libs/jsonTree/jsonTree.js"></script>
+
+    <style>
+        input,
+        select {
+            background-color: rgba(255, 255, 255, 0.40);
+            color: black;
+            width: '100%';
+            padding: 0 10px;
+        }
+
+        input:focus,
+        select:focus {
+            background-color: white;
+            outline: 0;
+        }
+
+        label {
+            margin-right: 10px;
+            font-style: italic;
+            color: #515c50;
+        }
+    </style>
+
+    <title>Swagger editor UI</title>
+    <!-- <script src="components.js"></script> -->
+</head>
+
+<body>
+    <div id="root"></div>
+    <!-- Load React and ReactDOM from a CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React
+
+
+        const SelectOptions = ({ options }) => options.map((_, k) => (<option key={_ + k} value={_} class="capitalize">{_}</option>))
+
+        const formatOptions = {
+            string: ["", "byte", "binary", "date", "date-time", "password"],
+            integer: ["", "int32", "int64"],
+            number: ["", "float", "double"],
+            boolean: [""],
+            array: [""],
+            object: [""]
+        };
+
+        const parameter = {
+            "name": "petId",
+            "in": "path",
+            "description": "ID of pet that needs to be updated",
+            "required": true,
+            "explode": true,
+            "schema": {
+                // "type": "integer",
+                // "format": "int64",
+
+                // "type": "array",
+                // "items": {
+                //   "type": "string"
+                // }
+
+
+                // "default": "available",
+                // "enum": [
+                //   "available",
+                //   "pending",
+                //   "sold"
+                // ]
+
+            }
+        }
+
+        function ParameterPicker({ onAddParameter }) {
+
+            const [params, setParams] = useState({
+                in: "path",
+                type: "string",
+                format: null,
+            });
+
+            const onPick = (e) => {
+                const { name, value } = e.target
+                setParams({ ...params, [name]: value })
+            }
+
+
+
+            const onAdd = () => {
+                let current = { ...parameter }
+                current.in = params.in
+                current.schema = {
+                    "type": params.type,
+                }
+                if (params.format) {
+                    current.schema['format'] = params.format
+                }
+                onAddParameter(current)
+            }
+
+
+            return (
+                <div className='flex gap-x-2 justify-between items-center my-6'>
+                    <i >In</i>
+                    <select id="paraIn" name='in' class="w-full"
+                        value={params.in}
+                        onChange={onPick}
+                    >
+                        <SelectOptions options={["path", "query", "header", "cookie", "$ref"]} />
+                    </select>
+
+                    <i >Type</i>
+                    <select id="paraType" name='type' class="w-full"
+                        value={params.type}
+                        onChange={onPick}
+                    >
+                        <SelectOptions options={["string", "integer", "number", "boolean", "array", "object"]} />
+
+                    </select>
+
+                    <i >Format</i>
+                    {params.type ?
+                        <select id="paraType"
+                            name='format' class="w-full"
+                            value={params.format}
+                            onChange={onPick}
+                        >
+                            {formatOptions[params.type].map((_, k) => {
+                                return <option value={_}>{_}</option>
+                            })}
+                        </select>
+                        : null}
+
+
+                    <button onClick={onAdd} class="w-full  bg-black text-white float-right hover:bg-gray-700">+ Add </button>
+                </div>
+            )
+        }
+
+
+        function ComponentPicker({ components, onAddComponent }) {
+
+
+            if (!components) return
+            const [params, setParams] = useState({
+                type: "schemas",
+                comp: null,
+            });
+
+            const onPick = (e) => {
+                const { name, value } = e.target
+                if(!value)return
+
+                setParams({ ...params, [name]: value })
+
+                if (name == "type") {
+                    onAddComponent(`#components/${value}/${params.comp}`)
+                }
+
+                if (name == "comp") {
+                    onAddComponent(`#components/${params.type}/${value}`)
+                }
+
+            }
+
+            return <div class="flex">
+                <p>#components/</p>
+                <select id="compType" name='type' class="w-full"
+                    value={params.type}
+                    onChange={onPick}
+                >
+                    <option value=""></option>
+                    <SelectOptions options={Object.keys(components)} />
+                </select>
+                <p>/</p>
+                {<select id="compObj" name='comp' class="w-full"
+                    value={params.comp}
+                    onChange={onPick}
+                >
+                    <option value=""></option>
+                    <SelectOptions options={Object.keys(components[params.type])} />
+                </select>}
+
+            </div>
+
+
+        }
+
+
+
+
+
+        //  M A I N
+
+
+        const colors = [
+            "#F6FFDE",
+            "#E3F2C1",
+            "#C9DBB2",
+            "#AAC8A7"]
+
+        const methods = ["get", "post", "put", "patch", "delete",]
+
+        const contents = {
+            "application/json": {
+                "schema": {
+                    "$ref": "#"
+                }
+            },
+            "application/xml": {
+                "schema": {
+                    "$ref": "#"
+                }
+            },
+            "application/x-www-form-urlencoded": {
+                "schema": {
+                    "$ref": "#"
+                }
+            }
+        }
+
+        const responses = {
+            "200": {
+                "description": "Successful operation",
+                "content": {}
+            },
+            "400": {
+                "description": "Invalid ID supplied"
+            },
+            "404": {
+                "description": "Pet not found"
+            },
+            "422": {
+                "description": "Validation exception"
+            }
+        }
+
+        const initialData = {
+            "post": {
+                tags: ["pet"],
+                summary: "Update an existing pet",
+                description: "Update an existing pet by Id",
+                operationId: "updatePet",
+                requestBody: {
+                    "description": "Update an existent pet in the store",
+                    "content": {},
+                    "required": true
+                },
+                parameters: [{
+                    "name": "petId",
+                    "in": "path",
+                    "description": "ID of pet that needs to be updated",
+                    "required": true,
+                    "schema": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }],
+                responses: {},
+            }
+        };
+
+        function App() {
+            const [formData, setFormData] = useState(initialData);
+            const [components, setComponents] = useState();
+            const wrapperRef = useRef(null);
+
+
+            useEffect(() => {
+                const getComponents = async () => {
+                    try {
+                        const response = await fetch('/components.json');
+                        const data = await response.json();
+                        console.log({ data });
+
+                        setComponents(data)
+                    } catch (error) {
+                        console.error("Error fetching JSON:", error);
+                    }
+                }
+                if (!components) getComponents()
+
+
+                if (!wrapperRef.current) return;
+                wrapperRef.current.innerHTML = "";
+                jsonTree.create(formData, wrapperRef.current, false);
+
+            }, [formData])
+
+
+            // Handle form submission
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                console.log("Updated JSON Data:", formData);
+            };
+
+
+            const shakedData = (path, value) => {
+                const keys = path.split(".");
+                const updatedData = structuredClone(formData); // Use deep copy
+
+                let current = updatedData;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    current = current[keys[i]];
+                }
+                if (!value) {
+                    return current[keys.at(-1)];
+                } else {
+                    current[keys.at(-1)] = value;
+                    return updatedData;
+                }
+            };
+
+
+            const onChangeMethod = (currentPath, newParameter, initKey) => {
+                const updatedData = formData[initKey]
+                setFormData({ [newParameter]: updatedData })
+            }
+
+            // Add Content
+            const onAddSection = (currentPath, value, data) => {
+                if (!value) return
+                const oldFields = shakedData(currentPath)
+                setFormData(shakedData(currentPath, { ...oldFields, [value]: data[value] }))
+            }
+
+            const onAddParameter = (currentPath, newParameter) => {
+                if (!newParameter) return
+
+                const oldFields = shakedData(currentPath)
+                oldFields.push(newParameter)
+                setFormData(shakedData(currentPath, oldFields))
+            }
+
+
+            const onAddComponent = (currentPath, newCompoPath) => {
+                if (!newCompoPath) return
+
+                setFormData(shakedData(currentPath, newCompoPath))
+            }
+
+
+
+            const containerClass = `px-10 py-1 mt-1`
+
+            // Render input fields dynamically
+            const renderFields = (data, path = "") => {
+
+                return Object.keys(data).map((key) => {
+                    const currentPath = path ? `${path}.${key}` : key;
+                    const len = currentPath.split(".").length
+
+                    const value = data[key];
+
+                    if (typeof value === "string" || typeof value === "number") {
+                        return (
+                            <div key={currentPath} className={`${containerClass} bg-[${colors[len]}]`}>
+                                <label htmlFor={currentPath}>{key}:</label>
+                                {key == "$ref" ? <ComponentPicker components={components} onAddComponent={result => {
+                                    setFormData(shakedData(currentPath, result))
+                                }} /> :
+                                    <input
+                                        type="text"
+                                        class={`${key == 'description' ? 'w-full' : 'w-fit'}`}
+                                        id={currentPath}
+                                        name={key}
+                                        value={value}
+                                        onChange={(e) => {
+                                            let val = e.target.value
+                                            setFormData(shakedData(currentPath, val == '' ? ' ' : val.replace(/^\s+/, "")))
+                                        }}
+                                    />}
+                            </div>
+                        );
+                    } else if (Array.isArray(value)) {
+                        // A R R A Y 
+                        return (
+                            <div key={currentPath} className={`${containerClass} bg-[${colors[len]}]`}>
+                                <label>{key}:</label>
+                                {renderFields(value, currentPath)}
+                                {/* <button type="button" onClick={() => handleRemoveArrayItem(index, currentPath)}>
+                                    Remove
+                                    </button> */}
+                                {key == "parameters" && <ParameterPicker
+                                    onAddParameter={result => onAddParameter(currentPath, result)} />}
+
+                            </div>
+                        );
+
+                        //  O B J E C T 
+                    } else if (typeof value === "object" && value !== null) {
+                        return (
+                            <div key={currentPath} className={`${containerClass} bg-[${colors[len]}]`}>
+                                {/* METHODS */}
+                                {methods.includes(key) ?
+                                    <select id="attrType" onChange={e => onChangeMethod(currentPath, e.target.value, key)} value={key}>
+                                        <option value=""></option>
+                                        {methods.map((_, k) => <option value={_}>{_.toLocaleUpperCase()}</option>)}
+                                    </select> : null
+                                }
+
+                                {/* CONTENTS */}
+                                {!methods.includes(key) && <label>{key}:</label>}
+
+                                {key == 'content' ?
+                                    <select id="attrType" onChange={e => onAddSection(currentPath, e.target.value, contents)}>
+                                        <option value=""></option>
+                                        <option value="application/json">application/json</option>
+                                        <option value="application/xml">application/xml</option>
+                                        <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                                    </select> : null
+                                }
+
+                                {/* RESPONSES */}
+                                {key == 'responses' ?
+                                    <select id="attrType" onChange={e => onAddSection(currentPath, e.target.value, responses)}>
+                                        <option value=""></option>
+                                        <option value="200">200</option>
+                                        <option value="400">400</option>
+                                        <option value="404">404</option>
+                                        <option value="422">422</option>
+                                    </select> : null
+                                }
+
+                                {renderFields(value, currentPath)}
+
+                            </div>
+                        );
+                    }
+                    return null;
+                });
+            };
+
+
+            return (
+                <div class="flex gap-4 h-screen border overflow-y-hidden">
+                    <div class='flex-1 overflow-y-scroll'>
+                        <h1>Swagger UI Editor</h1>
+                        <div onSubmit={null} className='pb-16 bg-[#F6FFDE]'>
+                            {renderFields(formData)}
+                        </div>
+                    </div>
+
+                    <div class='flex-1 overflow-y-scroll bg-gray-50'>
+                        <div class='flex justify-between items-center'>
+                            <h1>Swagger JSON</h1>
+                            <button type="submit" className='p-2 px-4 bg-black text-white float-right hover:bg-gray-700 m-2'>Copy Swagger JSON</button>
+                        </div>
+                        <div class="w-full " ref={wrapperRef} id="wrapper"></div>
+                        <pre id="json-output" className="text-[#515c50]  px-7 border-t mt-4 border-gray-200 ">{JSON.stringify(formData, null, 4)}</pre>
+                    </div>
+                </div>
+            )
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+
+</body>
+
+</html>
